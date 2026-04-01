@@ -1,0 +1,1307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>APSAS — Nagpur Safety Command Center</title>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Barlow:wght@300;400;500;600&family=Barlow+Condensed:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+<link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet"/>
+<style>
+:root {
+  --bg:       #060B14;
+  --sidebar:  #080E1C;
+  --card:     #0C1628;
+  --card2:    #101E35;
+  --border:   #1A2D4A;
+  --blue:     #1A56DB;
+  --blue-lt:  #2563EB;
+  --cyan:     #06B6D4;
+  --green:    #00E676;
+  --green-d:  #00A152;
+  --yellow:   #FFB300;
+  --orange:   #FF6D00;
+  --red:      #FF1744;
+  --red-glow: rgba(255,23,68,0.3);
+  --text:     #CBD5E1;
+  --text-lt:  #E2E8F0;
+  --text-dim: #4A6080;
+  --mono:     'JetBrains Mono', monospace;
+  --head:     'Rajdhani', sans-serif;
+  --body:     'Barlow', sans-serif;
+  --cond:     'Barlow Condensed', sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--body);}
+
+/* ── LAYOUT ── */
+#app{display:flex;height:100vh;width:100vw;}
+
+/* ── SIDEBAR ── */
+#sidebar{
+  width:230px;flex-shrink:0;background:var(--sidebar);
+  border-right:1px solid var(--border);display:flex;
+  flex-direction:column;overflow-y:auto;z-index:10;
+}
+#sidebar::-webkit-scrollbar{width:4px;}
+#sidebar::-webkit-scrollbar-track{background:transparent;}
+#sidebar::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+
+.logo-wrap{padding:18px 16px 14px;border-bottom:1px solid var(--border);}
+.logo-main{font-family:var(--head);font-size:26px;font-weight:700;color:var(--text-lt);letter-spacing:2px;}
+.logo-main span{color:var(--blue-lt);}
+.logo-sub{font-family:var(--mono);font-size:9px;color:var(--text-dim);letter-spacing:1px;margin-top:2px;}
+.city-badge{
+  margin-top:8px;display:inline-flex;align-items:center;gap:6px;
+  background:var(--card2);border:1px solid var(--border);border-radius:4px;
+  padding:4px 10px;font-family:var(--mono);font-size:10px;color:var(--cyan);letter-spacing:1px;
+}
+.city-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite;}
+
+.sb-section{padding:14px 16px;border-bottom:1px solid var(--border);}
+.sb-label{font-family:var(--mono);font-size:9px;color:var(--text-dim);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;}
+
+/* ── CLOCK ── */
+#live-clock{font-family:var(--mono);font-size:22px;color:var(--text-lt);letter-spacing:1px;}
+#live-date{font-family:var(--mono);font-size:10px;color:var(--text-dim);margin-top:2px;}
+
+/* ── ZONE STATS ── */
+.zone-stat{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.zone-stat-label{display:flex;align-items:center;gap:8px;font-size:13px;font-family:var(--cond);font-weight:600;letter-spacing:0.5px;}
+.zs-dot{width:8px;height:8px;border-radius:2px;}
+.zone-stat-count{font-family:var(--mono);font-size:12px;color:var(--text-lt);}
+
+/* ── LEGEND ── */
+.legend-item{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:12px;font-family:var(--cond);}
+.leg-box{width:28px;height:12px;border-radius:3px;flex-shrink:0;}
+
+/* ── NAV ── */
+.sb-nav{padding:12px 10px;}
+.nav-btn{
+  display:flex;align-items:center;gap:10px;width:100%;
+  padding:9px 12px;border:none;background:transparent;cursor:pointer;
+  border-radius:6px;color:var(--text);font-family:var(--cond);
+  font-size:14px;font-weight:600;letter-spacing:0.5px;transition:all 0.2s;
+  margin-bottom:3px;text-align:left;
+}
+.nav-btn:hover{background:var(--card2);color:var(--text-lt);}
+.nav-btn.active{background:linear-gradient(90deg,rgba(26,86,219,0.3),transparent);color:var(--blue-lt);border-left:2px solid var(--blue-lt);}
+.nav-icon{font-size:16px;width:20px;text-align:center;}
+.nav-badge{margin-left:auto;background:var(--red);color:#fff;font-family:var(--mono);font-size:10px;padding:1px 6px;border-radius:10px;}
+
+/* ── AI STATUS ── */
+.ai-status{margin:0 16px 14px;background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;}
+.ai-status-head{font-family:var(--mono);font-size:9px;color:var(--cyan);letter-spacing:1px;margin-bottom:6px;}
+.ai-bar-wrap{background:#0a1525;border-radius:4px;height:6px;overflow:hidden;margin-bottom:4px;}
+.ai-bar{height:100%;background:linear-gradient(90deg,var(--blue),var(--cyan));border-radius:4px;transition:width 1s;}
+.ai-conf{font-family:var(--mono);font-size:10px;color:var(--text-dim);}
+.ai-conf span{color:var(--green);font-weight:600;}
+
+/* ── MAP AREA ── */
+#map-wrap{flex:1;display:flex;flex-direction:column;position:relative;overflow:hidden;}
+#map{position:absolute;inset:0;}
+
+/* ── TOP BAR ── */
+#top-bar{
+  position:absolute;top:14px;left:14px;right:14px;z-index:5;
+  display:flex;align-items:center;gap:10px;
+}
+.search-box{
+  flex:1;background:rgba(8,14,28,0.92);border:1px solid var(--border);
+  border-radius:8px;padding:9px 14px;color:var(--text-lt);
+  font-family:var(--body);font-size:13px;outline:none;
+  backdrop-filter:blur(10px);
+}
+.search-box::placeholder{color:var(--text-dim);}
+.tb-chip{
+  background:rgba(8,14,28,0.92);border:1px solid var(--border);
+  border-radius:8px;padding:9px 14px;font-family:var(--mono);
+  font-size:11px;color:var(--text);white-space:nowrap;backdrop-filter:blur(10px);
+  cursor:pointer;transition:all 0.2s;
+}
+.tb-chip:hover{border-color:var(--blue);color:var(--blue-lt);}
+.tb-chip.alert-chip{border-color:rgba(255,23,68,0.5);color:var(--red);animation:blink 2s infinite;}
+
+/* ── MAP LEGEND ── */
+#map-legend{
+  position:absolute;bottom:30px;left:14px;z-index:5;
+  background:rgba(8,14,28,0.92);border:1px solid var(--border);
+  border-radius:8px;padding:12px 14px;backdrop-filter:blur(10px);
+  font-family:var(--cond);font-size:12px;
+}
+.ml-title{font-family:var(--mono);font-size:9px;color:var(--text-dim);letter-spacing:1px;margin-bottom:8px;}
+.ml-row{display:flex;align-items:center;gap:8px;margin-bottom:5px;}
+.ml-dot{width:10px;height:10px;border-radius:50%;}
+.ml-last{margin-bottom:0;}
+
+/* ── LAYER TOGGLE ── */
+#layer-toggle{
+  position:absolute;bottom:30px;left:50%;transform:translateX(-50%);z-index:5;
+  background:rgba(8,14,28,0.92);border:1px solid var(--border);
+  border-radius:8px;padding:8px 14px;backdrop-filter:blur(10px);
+  display:flex;align-items:center;gap:8px;
+}
+.toggle-btn{
+  background:var(--card2);border:1px solid var(--border);border-radius:5px;
+  padding:5px 12px;font-family:var(--mono);font-size:10px;color:var(--text-dim);
+  cursor:pointer;transition:all 0.2s;
+}
+.toggle-btn.on{background:rgba(26,86,219,0.3);border-color:var(--blue);color:var(--blue-lt);}
+
+/* ── RIGHT PANEL ── */
+#panel{
+  width:320px;flex-shrink:0;background:var(--sidebar);
+  border-left:1px solid var(--border);display:flex;flex-direction:column;z-index:10;
+}
+.panel-tabs{display:flex;border-bottom:1px solid var(--border);}
+.ptab{
+  flex:1;padding:12px 4px;text-align:center;cursor:pointer;
+  font-family:var(--mono);font-size:9px;letter-spacing:1px;
+  color:var(--text-dim);transition:all 0.2s;border:none;background:none;
+}
+.ptab:hover{color:var(--text);}
+.ptab.active{color:var(--blue-lt);border-bottom:2px solid var(--blue-lt);}
+.ptab-icon{font-size:16px;display:block;margin-bottom:2px;}
+.panel-body{flex:1;overflow-y:auto;padding:16px;}
+.panel-body::-webkit-scrollbar{width:4px;}
+.panel-body::-webkit-scrollbar-track{background:transparent;}
+.panel-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+
+/* ── CARDS ── */
+.card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:12px;}
+.card-title{font-family:var(--head);font-size:14px;font-weight:700;color:var(--text-lt);margin-bottom:10px;letter-spacing:0.5px;}
+.card-sub{font-size:11px;color:var(--text-dim);margin-bottom:12px;font-family:var(--mono);}
+
+/* ── FORM ELEMENTS ── */
+.form-label{font-family:var(--mono);font-size:9px;color:var(--text-dim);letter-spacing:1px;margin-bottom:5px;display:block;}
+select,input{
+  width:100%;background:var(--card2);border:1px solid var(--border);
+  border-radius:6px;padding:9px 12px;color:var(--text-lt);font-family:var(--body);
+  font-size:13px;outline:none;margin-bottom:10px;transition:border 0.2s;
+}
+select:focus,input:focus{border-color:var(--blue);}
+select option{background:var(--card);}
+.btn{
+  width:100%;padding:11px;border:none;border-radius:6px;cursor:pointer;
+  font-family:var(--head);font-size:15px;font-weight:700;letter-spacing:1px;
+  transition:all 0.2s;margin-top:4px;
+}
+.btn-blue{background:linear-gradient(135deg,var(--blue),var(--blue-lt));color:#fff;}
+.btn-blue:hover{opacity:0.9;transform:translateY(-1px);}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text);margin-top:6px;}
+.btn-outline:hover{border-color:var(--blue);color:var(--blue-lt);}
+
+/* ── SOS BUTTON ── */
+#sos-btn{
+  width:100%;height:120px;border-radius:12px;border:none;cursor:pointer;
+  background:linear-gradient(135deg,#8B0000,var(--red));
+  color:#fff;font-family:var(--head);font-size:36px;font-weight:700;
+  letter-spacing:3px;position:relative;overflow:hidden;
+  box-shadow:0 0 30px var(--red-glow);transition:all 0.2s;
+  animation:sos-pulse 3s infinite;
+}
+#sos-btn:hover{transform:scale(1.02);box-shadow:0 0 50px var(--red-glow);}
+#sos-btn:active{transform:scale(0.98);}
+#sos-btn::after{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse at center,rgba(255,255,255,0.1),transparent);
+}
+#sos-countdown{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  font-size:60px;font-weight:700;display:none;
+}
+#sos-cancel{display:none;}
+
+.contact-card{
+  display:flex;align-items:center;gap:10px;background:var(--card2);
+  border:1px solid var(--border);border-radius:6px;padding:10px 12px;margin-bottom:6px;
+}
+.contact-avatar{
+  width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--blue),var(--cyan));
+  display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;
+  flex-shrink:0;font-family:var(--head);
+}
+.contact-name{font-size:13px;color:var(--text-lt);font-weight:500;}
+.contact-rel{font-size:10px;color:var(--text-dim);font-family:var(--mono);}
+
+/* ── ROUTE RESULT ── */
+#route-result{display:none;}
+.route-option{
+  background:var(--card2);border:1px solid var(--border);border-radius:8px;
+  padding:12px;margin-bottom:8px;cursor:pointer;transition:all 0.2s;
+}
+.route-option:hover{border-color:var(--blue);}
+.route-option.selected{border-color:var(--green);background:rgba(0,230,118,0.05);}
+.ro-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;}
+.ro-name{font-family:var(--head);font-size:14px;font-weight:700;color:var(--text-lt);}
+.ro-badge{font-family:var(--mono);font-size:10px;padding:3px 8px;border-radius:4px;}
+.badge-safe{background:rgba(0,230,118,0.15);color:var(--green);}
+.badge-fast{background:rgba(255,109,0,0.15);color:var(--orange);}
+.ro-stats{display:flex;gap:16px;}
+.ro-stat{font-size:11px;font-family:var(--mono);color:var(--text-dim);}
+.ro-stat span{color:var(--text-lt);font-weight:500;}
+.risk-bar-wrap{background:#0a1525;border-radius:4px;height:4px;margin-top:8px;overflow:hidden;}
+.risk-bar{height:100%;border-radius:4px;}
+
+/* ── INCIDENT LIST ── */
+.incident-item{
+  display:flex;gap:10px;padding:10px 12px;background:var(--card2);
+  border:1px solid var(--border);border-radius:6px;margin-bottom:6px;
+  align-items:flex-start;
+}
+.inc-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:4px;}
+.inc-info{flex:1;}
+.inc-type{font-size:13px;font-weight:500;color:var(--text-lt);font-family:var(--cond);}
+.inc-loc{font-size:10px;color:var(--text-dim);font-family:var(--mono);}
+.inc-time{font-size:10px;color:var(--text-dim);font-family:var(--mono);flex-shrink:0;}
+
+/* ── DASHBOARD ── */
+.metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;}
+.metric{
+  background:var(--card2);border:1px solid var(--border);border-radius:8px;
+  padding:12px;text-align:center;
+}
+.metric-val{font-family:var(--head);font-size:28px;font-weight:700;color:var(--text-lt);}
+.metric-lbl{font-family:var(--mono);font-size:9px;color:var(--text-dim);letter-spacing:1px;margin-top:2px;}
+.zone-bar-item{margin-bottom:8px;}
+.zb-head{display:flex;justify-content:space-between;font-size:11px;font-family:var(--mono);margin-bottom:4px;}
+.zb-fill{height:6px;border-radius:4px;transition:width 1s;}
+.patrol-item{
+  display:flex;align-items:center;gap:10px;padding:10px;
+  background:var(--card2);border:1px solid var(--border);border-radius:6px;margin-bottom:6px;
+}
+.patrol-rank{
+  font-family:var(--mono);font-size:11px;color:var(--text-dim);
+  width:20px;text-align:center;flex-shrink:0;
+}
+.patrol-name{font-size:13px;font-family:var(--cond);font-weight:600;color:var(--text-lt);}
+.patrol-score{margin-left:auto;font-family:var(--mono);font-size:11px;}
+
+/* ── POPUP ── */
+.maplibregl-popup-content{
+  background:var(--card) !important;border:1px solid var(--border) !important;
+  border-radius:10px !important;padding:14px !important;
+  font-family:var(--body) !important;box-shadow:0 20px 60px rgba(0,0,0,0.5) !important;
+  min-width:200px !important;
+}
+.maplibregl-popup-tip{display:none !important;}
+.popup-name{font-family:var(--head);font-size:16px;font-weight:700;color:var(--text-lt);margin-bottom:2px;}
+.popup-crs{font-family:var(--mono);font-size:11px;margin-bottom:8px;}
+.popup-row{display:flex;justify-content:space-between;font-size:11px;padding:4px 0;border-bottom:1px solid var(--border);}
+.popup-row:last-child{border-bottom:none;}
+.popup-key{color:var(--text-dim);font-family:var(--mono);}
+.popup-val{color:var(--text-lt);font-weight:500;}
+.tier-tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:700;font-family:var(--mono);}
+
+/* ── NOTIFICATION TOAST ── */
+#toast{
+  position:fixed;top:20px;left:50%;transform:translateX(-50%) translateY(-80px);
+  background:var(--card);border:1px solid var(--border);border-radius:8px;
+  padding:12px 20px;font-family:var(--mono);font-size:12px;color:var(--text-lt);
+  z-index:9999;transition:transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
+  white-space:nowrap;box-shadow:0 10px 40px rgba(0,0,0,0.5);
+}
+#toast.show{transform:translateX(-50%) translateY(0);}
+
+/* ── USER LOCATION PULSE ── */
+.user-loc{
+  width:16px;height:16px;border-radius:50%;background:var(--blue-lt);
+  border:2px solid #fff;position:relative;
+}
+.user-loc::before{
+  content:'';position:absolute;top:-8px;left:-8px;right:-8px;bottom:-8px;
+  border-radius:50%;border:2px solid var(--blue-lt);animation:loc-pulse 2s infinite;
+}
+
+/* ── SOS SENT ── */
+#sos-sent{display:none;text-align:center;padding:16px;}
+.sos-sent-icon{font-size:48px;margin-bottom:12px;}
+.sos-sent-title{font-family:var(--head);font-size:20px;font-weight:700;color:var(--green);margin-bottom:6px;}
+.sos-sent-sub{font-size:12px;color:var(--text-dim);font-family:var(--mono);}
+
+/* ── ANIMATIONS ── */
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.4;}}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:0.6;}}
+@keyframes loc-pulse{0%{transform:scale(1);opacity:1;}100%{transform:scale(2.5);opacity:0;}}
+@keyframes sos-pulse{0%,100%{box-shadow:0 0 30px var(--red-glow);}50%{box-shadow:0 0 60px rgba(255,23,68,0.5);}}
+@keyframes slide-in{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+.slide-in{animation:slide-in 0.3s ease-out;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.spin{animation:spin 1s linear infinite;display:inline-block;}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+
+.maplibregl-ctrl-bottom-right,.maplibregl-ctrl-bottom-left{display:none;}
+.maplibregl-ctrl-top-right .maplibregl-ctrl{margin:0;}
+</style>
+</head>
+<body>
+
+<div id="app">
+
+<!-- ══════════════ SIDEBAR ══════════════ -->
+<aside id="sidebar">
+  <div class="logo-wrap">
+    <div class="logo-main">AP<span>SAS</span></div>
+    <div class="logo-sub">PREDICTIVE SAFETY ALERT SYSTEM</div>
+    <div class="city-badge">
+      <span class="city-dot"></span>NAGPUR, MH
+    </div>
+  </div>
+
+  <div class="sb-section">
+    <div class="sb-label">LIVE TIME</div>
+    <div id="live-clock">--:--:--</div>
+    <div id="live-date">Loading...</div>
+  </div>
+
+  <div class="sb-section">
+    <div class="sb-label">ZONE STATUS</div>
+    <div class="zone-stat">
+      <div class="zone-stat-label"><div class="zs-dot" style="background:var(--red)"></div>HIGH RISK</div>
+      <div class="zone-stat-count" id="count-high">4</div>
+    </div>
+    <div class="zone-stat">
+      <div class="zone-stat-label"><div class="zs-dot" style="background:var(--orange)"></div>MODERATE</div>
+      <div class="zone-stat-count" id="count-mod">5</div>
+    </div>
+    <div class="zone-stat">
+      <div class="zone-stat-label"><div class="zs-dot" style="background:var(--yellow)"></div>ADVISORY</div>
+      <div class="zone-stat-count" id="count-adv">4</div>
+    </div>
+    <div class="zone-stat">
+      <div class="zone-stat-label"><div class="zs-dot" style="background:var(--green)"></div>SAFE</div>
+      <div class="zone-stat-count" id="count-safe">7</div>
+    </div>
+  </div>
+
+  <div class="sb-section">
+    <div class="sb-label">RISK LEGEND</div>
+    <div class="legend-item"><div class="leg-box" style="background:var(--red);opacity:0.7"></div>Critical / High Risk (CRS >0.75)</div>
+    <div class="legend-item"><div class="leg-box" style="background:var(--orange);opacity:0.7"></div>Moderate Risk (0.55–0.75)</div>
+    <div class="legend-item"><div class="leg-box" style="background:var(--yellow);opacity:0.7"></div>Advisory (0.35–0.55)</div>
+    <div class="legend-item"><div class="leg-box" style="background:var(--green);opacity:0.7"></div>Safe Zone (CRS &lt;0.35)</div>
+  </div>
+
+  <div class="sb-nav">
+    <div class="sb-label" style="padding:0 6px 8px">NAVIGATION</div>
+    <button class="nav-btn active" onclick="switchTab('route')"><span class="nav-icon">🗺️</span>Safe Route</button>
+    <button class="nav-btn" onclick="switchTab('sos')"><span class="nav-icon">🆘</span>SOS Alert<span class="nav-badge">LIVE</span></button>
+    <button class="nav-btn" onclick="switchTab('report')"><span class="nav-icon">📋</span>Report Incident</button>
+    <button class="nav-btn" onclick="switchTab('dash')"><span class="nav-icon">📊</span>LE Dashboard</button>
+  </div>
+
+  <div class="ai-status">
+    <div class="ai-status-head">⚡ AI MODEL STATUS</div>
+    <div class="ai-bar-wrap"><div class="ai-bar" id="ai-bar" style="width:87%"></div></div>
+    <div class="ai-conf">Confidence: <span id="ai-conf-val">87.3%</span> &nbsp;·&nbsp; Updated <span id="ai-upd">2 min ago</span></div>
+  </div>
+</aside>
+
+<!-- ══════════════ MAP ══════════════ -->
+<div id="map-wrap">
+  <div id="map"></div>
+
+  <div id="top-bar">
+    <input class="search-box" type="text" placeholder="🔍  Search area in Nagpur..."/>
+    <div class="tb-chip">👤 Sitabuldi</div>
+    <div class="tb-chip alert-chip">🚨 3 Alerts</div>
+    <div class="tb-chip" id="refresh-btn" onclick="refreshZones()">↻ Refresh</div>
+  </div>
+
+  <div id="map-legend">
+    <div class="ml-title">ACTIVE ZONES</div>
+    <div class="ml-row"><div class="ml-dot" style="background:var(--red)"></div>High Risk Area</div>
+    <div class="ml-row"><div class="ml-dot" style="background:var(--orange)"></div>Moderate Risk</div>
+    <div class="ml-row"><div class="ml-dot" style="background:var(--yellow)"></div>Advisory Zone</div>
+    <div class="ml-row ml-last"><div class="ml-dot" style="background:var(--green)"></div>Safe Zone</div>
+  </div>
+
+  <div id="layer-toggle">
+    <span style="font-family:var(--mono);font-size:9px;color:var(--text-dim)">LAYERS:</span>
+    <button class="toggle-btn on" id="toggle-zones" onclick="toggleLayer('zones')">ZONES</button>
+    <button class="toggle-btn on" id="toggle-heat" onclick="toggleLayer('heat')">HEATMAP</button>
+    <button class="toggle-btn" id="toggle-route" onclick="toggleLayer('route')">ROUTE</button>
+  </div>
+</div>
+
+<!-- ══════════════ RIGHT PANEL ══════════════ -->
+<div id="panel">
+  <div class="panel-tabs">
+    <button class="ptab active" id="ptab-route" onclick="switchTab('route')"><span class="ptab-icon">🗺️</span>ROUTE</button>
+    <button class="ptab" id="ptab-sos" onclick="switchTab('sos')"><span class="ptab-icon">🆘</span>SOS</button>
+    <button class="ptab" id="ptab-report" onclick="switchTab('report')"><span class="ptab-icon">📋</span>REPORT</button>
+    <button class="ptab" id="ptab-dash" onclick="switchTab('dash')"><span class="ptab-icon">📊</span>DASH</button>
+  </div>
+
+  <!-- ── ROUTE TAB ── -->
+  <div class="panel-body" id="tab-route">
+    <div class="card">
+      <div class="card-title">🗺️ Safe Route Planner</div>
+      <div class="card-sub">AI-powered routing avoids high-risk zones</div>
+      <label class="form-label">ORIGIN</label>
+      <select id="route-from">
+        <option value="">Select starting area...</option>
+        <option value="civil-lines">Civil Lines (Safe)</option>
+        <option value="dharampeth">Dharampeth (Safe)</option>
+        <option value="ramdaspeth">Ramdaspeth (Safe)</option>
+        <option value="sitabuldi">Sitabuldi (Moderate)</option>
+        <option value="sadar">Sadar (Moderate)</option>
+        <option value="shankar-nagar">Shankar Nagar (Safe)</option>
+        <option value="itwari">Itwari (High Risk)</option>
+        <option value="gandhibagh">Gandhibagh (High Risk)</option>
+      </select>
+      <label class="form-label">DESTINATION</label>
+      <select id="route-to">
+        <option value="">Select destination...</option>
+        <option value="civil-lines">Civil Lines (Safe)</option>
+        <option value="dharampeth">Dharampeth (Safe)</option>
+        <option value="ramdaspeth">Ramdaspeth (Safe)</option>
+        <option value="sitabuldi">Sitabuldi (Moderate)</option>
+        <option value="sadar">Sadar (Moderate)</option>
+        <option value="bajaj-nagar">Bajaj Nagar (Safe)</option>
+        <option value="itwari">Itwari (High Risk)</option>
+        <option value="wardha-road">Wardha Road (Advisory)</option>
+        <option value="nandanvan">Nandanvan (Advisory)</option>
+      </select>
+      <label class="form-label">TRAVEL MODE</label>
+      <select id="travel-mode">
+        <option value="walk">🚶 Walking</option>
+        <option value="bike">🏍️ Two-Wheeler</option>
+        <option value="car">🚗 Car</option>
+        <option value="auto">🛺 Auto Rickshaw</option>
+      </select>
+      <button class="btn btn-blue" onclick="planRoute()">⚡ FIND SAFE ROUTE</button>
+    </div>
+
+    <div id="route-result">
+      <div class="card" style="border-color:var(--border)">
+        <div class="card-title">Route Options</div>
+        <div class="route-option selected" id="ro-safe" onclick="selectRoute('safe')">
+          <div class="ro-head">
+            <div class="ro-name">🛡️ Safe Route</div>
+            <div class="ro-badge badge-safe">RECOMMENDED</div>
+          </div>
+          <div class="ro-stats">
+            <div class="ro-stat">Time: <span id="safe-time">--</span></div>
+            <div class="ro-stat">Dist: <span id="safe-dist">--</span></div>
+            <div class="ro-stat">Risk: <span id="safe-risk" style="color:var(--green)">--</span></div>
+          </div>
+          <div class="risk-bar-wrap"><div class="risk-bar" id="safe-rbar" style="background:var(--green);width:15%"></div></div>
+        </div>
+        <div class="route-option" id="ro-fast" onclick="selectRoute('fast')">
+          <div class="ro-head">
+            <div class="ro-name">⚡ Fastest Route</div>
+            <div class="ro-badge badge-fast">AVOID IF POSSIBLE</div>
+          </div>
+          <div class="ro-stats">
+            <div class="ro-stat">Time: <span id="fast-time">--</span></div>
+            <div class="ro-stat">Dist: <span id="fast-dist">--</span></div>
+            <div class="ro-stat">Risk: <span id="fast-risk" style="color:var(--orange)">--</span></div>
+          </div>
+          <div class="risk-bar-wrap"><div class="risk-bar" id="fast-rbar" style="background:var(--orange);width:60%"></div></div>
+        </div>
+        <button class="btn btn-blue" style="margin-top:4px" onclick="startNavigation()">▶ START NAVIGATION</button>
+        <button class="btn btn-outline" onclick="clearRoute()">✕ Clear Route</button>
+      </div>
+    </div>
+
+    <!-- Recent alerts -->
+    <div class="card">
+      <div class="card-title">⚡ Recent Incidents</div>
+      <div id="incident-list"></div>
+    </div>
+  </div>
+
+  <!-- ── SOS TAB ── -->
+  <div class="panel-body" id="tab-sos" style="display:none">
+    <div id="sos-normal">
+      <div class="card" style="border-color:rgba(255,23,68,0.3)">
+        <div class="card-title" style="color:var(--red)">🆘 Emergency SOS</div>
+        <div class="card-sub">Sends live GPS + audio alert to your contacts</div>
+        <button id="sos-btn" onclick="triggerSOS()">
+          <span id="sos-text">SOS</span>
+          <span id="sos-countdown"></span>
+        </button>
+        <div style="text-align:center;margin-top:8px;font-family:var(--mono);font-size:10px;color:var(--text-dim)">
+          Tap and hold for 2 seconds · 5 second cancel window
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">👥 Emergency Contacts</div>
+        <div class="contact-card">
+          <div class="contact-avatar">PM</div>
+          <div><div class="contact-name">Priya Mehta</div><div class="contact-rel">MOTHER · +91 98765 43210</div></div>
+        </div>
+        <div class="contact-card">
+          <div class="contact-avatar">RD</div>
+          <div><div class="contact-name">Rahul Deshpande</div><div class="contact-rel">BROTHER · +91 87654 32109</div></div>
+        </div>
+        <div class="contact-card">
+          <div class="contact-avatar">SP</div>
+          <div><div class="contact-name">Sarika Patil</div><div class="contact-rel">FRIEND · +91 76543 21098</div></div>
+        </div>
+        <button class="btn btn-outline" style="margin-top:6px" onclick="showToast('✏️ Contact editor coming soon')">+ Add Contact</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">📍 Your Location</div>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--text-dim);margin-bottom:4px">COORDINATES</div>
+        <div style="font-family:var(--mono);font-size:12px;color:var(--cyan)">21.1458° N, 79.0882° E</div>
+        <div style="font-family:var(--mono);font-size:11px;color:var(--text-dim);margin-top:6px;margin-bottom:2px">AREA</div>
+        <div style="font-size:13px;color:var(--text-lt)">Sitabuldi, Nagpur</div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--yellow);margin-top:6px">⚠ MODERATE RISK ZONE</div>
+      </div>
+    </div>
+
+    <div id="sos-sent" class="slide-in">
+      <div class="sos-sent-icon">✅</div>
+      <div class="sos-sent-title">SOS SENT!</div>
+      <div class="sos-sent-sub" style="margin-bottom:16px">Alert delivered to 3 contacts</div>
+      <div style="font-family:var(--mono);font-size:10px;color:var(--text-dim);text-align:left;background:var(--card2);border-radius:8px;padding:12px;border:1px solid var(--border)">
+        <div style="color:var(--green);margin-bottom:4px">✓ Priya Mehta — SMS Delivered</div>
+        <div style="color:var(--green);margin-bottom:4px">✓ Rahul Deshpande — SMS Delivered</div>
+        <div style="color:var(--green);margin-bottom:8px">✓ Sarika Patil — SMS Delivered</div>
+        <div style="color:var(--text-dim)">📍 Location shared: 21.1458, 79.0882</div>
+        <div style="color:var(--text-dim)">🔊 10s audio clip attached</div>
+        <div style="color:var(--text-dim)">⏱ Delivered in 2.3 seconds</div>
+      </div>
+      <button class="btn btn-outline" style="margin-top:16px" onclick="resetSOS()">↩ Back to SOS</button>
+    </div>
+  </div>
+
+  <!-- ── REPORT TAB ── -->
+  <div class="panel-body" id="tab-report" style="display:none">
+    <div class="card">
+      <div class="card-title">📋 Report Incident</div>
+      <div class="card-sub">Community reports update risk scores in real-time</div>
+      <label class="form-label">CRIME TYPE</label>
+      <select id="crime-type">
+        <option value="">Select incident type...</option>
+        <option value="theft">🔓 Theft / Pickpocketing</option>
+        <option value="snatching">⛓️ Chain Snatching</option>
+        <option value="assault">⚔️ Physical Assault</option>
+        <option value="robbery">💼 Robbery</option>
+        <option value="vehicle-theft">🚗 Vehicle Theft</option>
+        <option value="harassment">😟 Harassment</option>
+        <option value="suspicious">👀 Suspicious Activity</option>
+        <option value="other">📌 Other</option>
+      </select>
+      <label class="form-label">LOCATION</label>
+      <select id="report-location">
+        <option value="sitabuldi">Sitabuldi</option>
+        <option value="itwari">Itwari</option>
+        <option value="gandhibagh">Gandhibagh</option>
+        <option value="sadar">Sadar</option>
+        <option value="civil-lines">Civil Lines</option>
+        <option value="dharampeth">Dharampeth</option>
+        <option value="jaripatka">Jaripatka</option>
+        <option value="mankapur">Mankapur</option>
+        <option value="lakadganj">Lakadganj</option>
+        <option value="kamptee-road">Kamptee Road</option>
+      </select>
+      <label class="form-label">SEVERITY</label>
+      <select id="severity">
+        <option value="low">🟡 Low — Minor incident</option>
+        <option value="medium">🟠 Medium — Needs attention</option>
+        <option value="high">🔴 High — Immediate danger</option>
+      </select>
+      <label class="form-label">DESCRIPTION (OPTIONAL)</label>
+      <input type="text" id="report-desc" placeholder="Brief description..."/>
+      <button class="btn btn-blue" onclick="submitReport()">📤 SUBMIT REPORT</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">ℹ️ How Reports Work</div>
+      <div style="font-size:12px;color:var(--text-dim);line-height:1.6">
+        <div style="margin-bottom:6px">🔹 Reports are verified by AI before affecting risk scores</div>
+        <div style="margin-bottom:6px">🔹 3+ independent reports raise zone risk level</div>
+        <div style="margin-bottom:6px">🔹 Scores auto-decay after 4 hours without new reports</div>
+        <div>🔹 Duplicate reports from same device are filtered</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📊 My Reports</div>
+      <div id="my-reports">
+        <div style="font-family:var(--mono);font-size:11px;color:var(--text-dim);text-align:center;padding:16px">No reports submitted yet</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── DASHBOARD TAB ── -->
+  <div class="panel-body" id="tab-dash" style="display:none">
+    <div class="card">
+      <div class="card-title">📊 City Overview</div>
+      <div class="metric-grid">
+        <div class="metric">
+          <div class="metric-val" style="color:var(--red)">4</div>
+          <div class="metric-lbl">HIGH RISK ZONES</div>
+        </div>
+        <div class="metric">
+          <div class="metric-val" id="total-crimes" style="color:var(--text-lt)">847</div>
+          <div class="metric-lbl">TOTAL INCIDENTS</div>
+        </div>
+        <div class="metric">
+          <div class="metric-val" style="color:var(--green)">7</div>
+          <div class="metric-lbl">SAFE ZONES</div>
+        </div>
+        <div class="metric">
+          <div class="metric-val" style="color:var(--cyan)" id="avg-crs">0.44</div>
+          <div class="metric-lbl">AVG CITY CRS</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🔴 Patrol Priority Zones</div>
+      <div class="card-sub">Recommended deployment for next 6 hours</div>
+      <div id="patrol-list"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📈 Risk Distribution</div>
+      <div id="risk-dist"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">⏱️ Crime by Time of Day</div>
+      <div style="display:flex;align-items:flex-end;gap:4px;height:60px;margin-top:8px">
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">
+          <div style="width:100%;border-radius:3px 3px 0 0;" data-h="25" class="time-bar"></div>
+          <div style="font-family:var(--mono);font-size:8px;color:var(--text-dim)">12A</div>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">
+          <div style="width:100%;border-radius:3px 3px 0 0;" data-h="40" class="time-bar"></div>
+          <div style="font-family:var(--mono);font-size:8px;color:var(--text-dim)">2A</div>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">
+          <div style="width:100%;border-radius:3px 3px 0 0;" data-h="55" class="time-bar"></div>
+          <div style="font-family:var(--mono);font-size:8px;color:var(--text-dim)">4A</div>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">
+          <div style="width:100%;border-radius:3px 3px 0 0;" data-h="20" class="time-bar"></div>
+          <div style="font-family:var(--mono);font-size:8px;color:var(--text-dim)">6A</div>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">
+          <div style="width:100%;border-radius:3px 3px 0 0;" data-h="15" class="time-bar"></div>
+          <div style="font-family:var(--mono);font-size:8px;color:var(--text-dim)">8A</div>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">
+          <div style="width:100%;border-radius:3px 3px 0 0;" data-h="30" class="time-bar"></div>
+          <div style="font-family:var(--mono);font-size:8px;color:var(--text-dim)">10A</div>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">
+          <div style="width:100%;border-radius:3px 3px 0 0;" data-h="50" class="time-bar"></div>
+          <div style="font-family:var(--mono);font-size:8px;color:var(--text-dim)">12P</div>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">
+          <div style="width:100%;border-radius:3px 3px 0 0;" data-h="65" class="time-bar"></div>
+          <div style="font-family:var(--mono);font-size:8px;color:var(--text-dim)">2P</div>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">
+          <div style="width:100%;border-radius:3px 3px 0 0;" data-h="45" class="time-bar"></div>
+          <div style="font-family:var(--mono);font-size:8px;color:var(--text-dim)">4P</div>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">
+          <div style="width:100%;border-radius:3px 3px 0 0;" data-h="80" class="time-bar"></div>
+          <div style="font-family:var(--mono);font-size:8px;color:var(--text-dim)">6P</div>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">
+          <div style="width:100%;border-radius:3px 3px 0 0;" data-h="100" class="time-bar"></div>
+          <div style="font-family:var(--mono);font-size:8px;color:var(--text-dim)">8P</div>
+        </div>
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">
+          <div style="width:100%;border-radius:3px 3px 0 0;" data-h="90" class="time-bar"></div>
+          <div style="font-family:var(--mono);font-size:8px;color:var(--text-dim)">10P</div>
+        </div>
+      </div>
+      <div style="font-family:var(--mono);font-size:9px;color:var(--text-dim);margin-top:8px;text-align:center">
+        ⚠ Peak risk: 8–10 PM · Most incidents reported in evening hours
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<div id="toast">Toast message</div>
+
+<script>
+// ════════════════════════════════════════════════════════
+// DATA — NAGPUR CRIME ZONES
+// ════════════════════════════════════════════════════════
+const ZONES = [
+  // HIGH RISK
+  { id:'itwari',      name:'Itwari',        lng:79.1080, lat:21.1580, crs:0.89, tier:'high',     crimes:142, top:'Theft, Chain Snatching, Robbery' },
+  { id:'gandhibagh',  name:'Gandhibagh',    lng:79.0980, lat:21.1495, crs:0.82, tier:'high',     crimes:118, top:'Robbery, Assault, Pickpocketing' },
+  { id:'jaripatka',   name:'Jaripatka',     lng:79.1180, lat:21.1440, crs:0.77, tier:'high',     crimes:98,  top:'Gang Activity, Vehicle Theft' },
+  { id:'cotton-mkt',  name:'Cotton Market', lng:79.0940, lat:21.1640, crs:0.76, tier:'high',     crimes:105, top:'Fraud, Chain Snatching' },
+  // MODERATE
+  { id:'sadar',       name:'Sadar',         lng:79.0960, lat:21.1390, crs:0.65, tier:'moderate', crimes:76,  top:'Vehicle Theft, Snatching' },
+  { id:'sitabuldi',   name:'Sitabuldi',     lng:79.0882, lat:21.1458, crs:0.58, tier:'moderate', crimes:63,  top:'Theft, Traffic Crime' },
+  { id:'kamptee-rd',  name:'Kamptee Road',  lng:79.1150, lat:21.1700, crs:0.63, tier:'moderate', crimes:71,  top:'Robbery, Vehicle Crime' },
+  { id:'mankapur',    name:'Mankapur',      lng:79.0640, lat:21.1590, crs:0.55, tier:'moderate', crimes:58,  top:'Theft, Assault' },
+  { id:'tehsil',      name:'Tehsil',        lng:79.0850, lat:21.1610, crs:0.60, tier:'moderate', crimes:67,  top:'Petty Crime, Snatching' },
+  // ADVISORY
+  { id:'lakadganj',   name:'Lakadganj',     lng:79.0720, lat:21.1540, crs:0.45, tier:'advisory', crimes:38,  top:'Minor Theft' },
+  { id:'nandanvan',   name:'Nandanvan',     lng:79.1050, lat:21.1240, crs:0.48, tier:'advisory', crimes:42,  top:'Chain Snatching' },
+  { id:'wardha-road', name:'Wardha Road',   lng:79.1280, lat:21.1100, crs:0.38, tier:'advisory', crimes:31,  top:'Traffic Crime' },
+  { id:'pratap-ngr',  name:'Pratap Nagar',  lng:79.0590, lat:21.1440, crs:0.40, tier:'advisory', crimes:28,  top:'Minor Theft' },
+  // SAFE
+  { id:'civil-lines', name:'Civil Lines',   lng:79.0880, lat:21.1510, crs:0.15, tier:'safe',     crimes:8,   top:'Minor Disputes' },
+  { id:'dharampeth',  name:'Dharampeth',    lng:79.0671, lat:21.1315, crs:0.12, tier:'safe',     crimes:6,   top:'Minor Theft' },
+  { id:'ramdaspeth',  name:'Ramdaspeth',    lng:79.0750, lat:21.1265, crs:0.18, tier:'safe',     crimes:11,  top:'Vehicle Dispute' },
+  { id:'bajaj-nagar', name:'Bajaj Nagar',   lng:79.0590, lat:21.1140, crs:0.10, tier:'safe',     crimes:5,   top:'None significant' },
+  { id:'shankar-ngr', name:'Shankar Nagar', lng:79.0740, lat:21.1390, crs:0.22, tier:'safe',     crimes:14,  top:'Minor Disputes' },
+  { id:'hingna',      name:'Hingna',        lng:79.0390, lat:21.1090, crs:0.20, tier:'safe',     crimes:10,  top:'Minor Crime' },
+  { id:'wardhaman',   name:'Wardhaman Ngr', lng:79.1190, lat:21.1290, crs:0.30, tier:'safe',     crimes:22,  top:'Vehicle Theft' },
+];
+
+const TIER_COLOR = { high:'#FF1744', moderate:'#FF6D00', advisory:'#FFB300', safe:'#00E676' };
+const TIER_OPACITY = { high:0.7, moderate:0.6, advisory:0.5, safe:0.45 };
+const TIER_RADIUS = { high:28, moderate:24, advisory:20, safe:18 };
+
+const INCIDENTS = [
+  { type:'Chain Snatching', area:'Itwari', time:'8 min ago', tier:'high' },
+  { type:'Vehicle Theft',   area:'Gandhibagh', time:'23 min ago', tier:'high' },
+  { type:'Pickpocketing',   area:'Sadar', time:'41 min ago', tier:'moderate' },
+  { type:'Suspicious Activity', area:'Kamptee Rd', time:'1 hr ago', tier:'advisory' },
+  { type:'Robbery',         area:'Cotton Market', time:'2 hr ago', tier:'high' },
+];
+
+const ROUTE_DATA = {
+  'civil-lines→itwari':    { safeTime:'22 min', safeDist:'3.8 km', safeRisk:'LOW',  fastTime:'14 min', fastDist:'2.9 km', fastRisk:'HIGH' },
+  'dharampeth→itwari':     { safeTime:'28 min', safeDist:'5.1 km', safeRisk:'LOW',  fastTime:'18 min', fastDist:'3.7 km', fastRisk:'HIGH' },
+  'sitabuldi→dharampeth':  { safeTime:'16 min', safeDist:'2.8 km', safeRisk:'LOW',  fastTime:'11 min', fastDist:'2.1 km', fastRisk:'MED'  },
+  'sadar→bajaj-nagar':     { safeTime:'19 min', safeDist:'3.2 km', safeRisk:'LOW',  fastTime:'13 min', fastDist:'2.5 km', fastRisk:'MED'  },
+  'itwari→civil-lines':    { safeTime:'22 min', safeDist:'3.8 km', safeRisk:'LOW',  fastTime:'14 min', fastDist:'2.9 km', fastRisk:'HIGH' },
+  'gandhibagh→dharampeth': { safeTime:'25 min', safeDist:'4.4 km', safeRisk:'LOW',  fastTime:'16 min', fastDist:'3.1 km', fastRisk:'HIGH' },
+  'default':               { safeTime:'18 min', safeDist:'3.0 km', safeRisk:'LOW',  fastTime:'12 min', fastDist:'2.1 km', fastRisk:'MED'  },
+};
+
+// Safe route waypoints (GeoJSON coords) between zones
+const SAFE_ROUTES = {
+  'civil-lines→itwari': [[79.0880,21.1510],[79.0820,21.1560],[79.0850,21.1590],[79.1080,21.1580]],
+  'dharampeth→itwari':  [[79.0671,21.1315],[79.0700,21.1450],[79.0820,21.1560],[79.1080,21.1580]],
+  'default-safe':       [[79.0882,21.1458],[79.0800,21.1500],[79.0900,21.1550],[79.1000,21.1500]],
+  'default-fast':       [[79.0882,21.1458],[79.1000,21.1480]],
+};
+
+// ════════════════════════════════════════════════════════
+// MAP INIT
+// ════════════════════════════════════════════════════════
+let map, popup, routeVisible = false;
+let layerState = { zones: true, heat: true, route: false };
+let sosTimer = null, sosSeconds = 5;
+let myReports = [], activeRoute = null;
+
+const mapStyle = {
+  version: 8,
+  sources: {
+    osm: {
+      type: 'raster',
+      tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+      tileSize: 256,
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }
+  },
+  layers: [{ id:'osm', type:'raster', source:'osm', paint:{'raster-opacity':0.88} }]
+};
+
+map = new maplibregl.Map({
+  container: 'map',
+  style: mapStyle,
+  center: [79.0882, 21.1458],
+  zoom: 13,
+  minZoom: 11,
+  maxZoom: 18
+});
+
+map.addControl(new maplibregl.NavigationControl(), 'top-right');
+
+// User location marker
+const userEl = document.createElement('div');
+userEl.className = 'user-loc';
+new maplibregl.Marker({ element: userEl }).setLngLat([79.0882, 21.1458]).addTo(map);
+
+popup = new maplibregl.Popup({ closeButton: false, maxWidth: '260px', offset: 15 });
+
+map.on('load', () => {
+  buildZoneGeoJSON();
+  buildHeatmap();
+  initRoute();
+  initDashboard();
+  renderIncidents();
+});
+
+// ════════════════════════════════════════════════════════
+// ZONE LAYERS
+// ════════════════════════════════════════════════════════
+function buildZoneGeoJSON() {
+  const features = ZONES.map(z => ({
+    type: 'Feature',
+    properties: { ...z, color: TIER_COLOR[z.tier], opacity: TIER_OPACITY[z.tier] },
+    geometry: { type: 'Point', coordinates: [z.lng, z.lat] }
+  }));
+
+  map.addSource('zones', { type: 'geojson', data: { type: 'FeatureCollection', features } });
+
+  // Shadow / glow
+  map.addLayer({
+    id: 'zones-glow', type: 'circle', source: 'zones',
+    paint: {
+      'circle-radius': ['match',['get','tier'],'high',38,'moderate',32,'advisory',26,22],
+      'circle-color': ['get','color'],
+      'circle-opacity': 0.12,
+      'circle-blur': 0.8
+    }
+  });
+
+  // Main circles
+  map.addLayer({
+    id: 'zones-circle', type: 'circle', source: 'zones',
+    paint: {
+      'circle-radius': ['match',['get','tier'],'high',22,'moderate',18,'advisory',15,13],
+      'circle-color': ['get','color'],
+      'circle-opacity': ['get','opacity'],
+      'circle-stroke-width': 1.5,
+      'circle-stroke-color': ['get','color'],
+      'circle-stroke-opacity': 0.8
+    }
+  });
+
+  // Labels
+  map.addLayer({
+    id: 'zones-label', type: 'symbol', source: 'zones',
+    layout: {
+      'text-field': ['get','name'],
+      'text-font': ['Open Sans Bold','Arial Unicode MS Bold'],
+      'text-size': 11,
+      'text-offset': [0, 1.8],
+      'text-anchor': 'top'
+    },
+    paint: {
+      'text-color': '#E2E8F0',
+      'text-halo-color': '#060B14',
+      'text-halo-width': 2
+    }
+  });
+
+  // Click handler
+  map.on('click', 'zones-circle', (e) => {
+    const p = e.features[0].properties;
+    const tierColors = { high:'#FF1744', moderate:'#FF6D00', advisory:'#FFB300', safe:'#00E676' };
+    const tierLabels = { high:'HIGH RISK', moderate:'MODERATE', advisory:'ADVISORY', safe:'SAFE' };
+    const c = tierColors[p.tier], lbl = tierLabels[p.tier];
+    const crs = parseFloat(p.crs);
+
+    popup.setLngLat(e.lngLat).setHTML(`
+      <div class="popup-name">${p.name}</div>
+      <div class="popup-crs"><span class="tier-tag" style="background:${c}22;color:${c};border:1px solid ${c}44">${lbl}</span> &nbsp; CRS: <span style="color:${c};font-weight:600">${crs.toFixed(2)}</span></div>
+      <div class="popup-row"><span class="popup-key">Incidents (30d)</span><span class="popup-val" style="color:#E2E8F0">${p.crimes}</span></div>
+      <div class="popup-row"><span class="popup-key">Top Crimes</span><span class="popup-val" style="font-size:10px;max-width:120px;text-align:right">${p.top}</span></div>
+      <div class="popup-row"><span class="popup-key">Risk Score</span><span class="popup-val" style="color:${c}">${Math.round(crs*100)}%</span></div>
+      <div style="margin-top:8px;background:#0a1525;border-radius:4px;height:6px;overflow:hidden">
+        <div style="width:${crs*100}%;height:100%;background:${c};border-radius:4px"></div>
+      </div>
+    `).addTo(map);
+  });
+
+  map.on('mouseenter','zones-circle',()=>{ map.getCanvas().style.cursor='pointer'; });
+  map.on('mouseleave','zones-circle',()=>{ map.getCanvas().style.cursor=''; popup.remove(); });
+}
+
+function buildHeatmap() {
+  const features = ZONES.map(z => ({
+    type: 'Feature',
+    properties: { weight: z.crs },
+    geometry: { type: 'Point', coordinates: [z.lng, z.lat] }
+  }));
+
+  map.addSource('heat-src', { type: 'geojson', data: { type: 'FeatureCollection', features } });
+
+  map.addLayer({
+    id: 'heatmap-layer', type: 'heatmap', source: 'heat-src',
+    paint: {
+      'heatmap-weight': ['interpolate',['linear'],['get','weight'],0,0,1,1],
+      'heatmap-intensity': ['interpolate',['linear'],['zoom'],11,0.6,15,1.2],
+      'heatmap-radius': ['interpolate',['linear'],['zoom'],11,30,15,60],
+      'heatmap-opacity': 0.35,
+      'heatmap-color': [
+        'interpolate',['linear'],['heatmap-density'],
+        0,'rgba(0,0,0,0)',0.2,'rgba(0,230,118,0.3)',0.4,'rgba(255,179,0,0.5)',
+        0.6,'rgba(255,109,0,0.6)',0.8,'rgba(255,23,68,0.7)',1,'rgba(255,23,68,0.9)'
+      ]
+    }
+  }, 'zones-glow');
+}
+
+function initRoute() {
+  map.addSource('route-src', {
+    type: 'geojson',
+    data: { type: 'FeatureCollection', features: [] }
+  });
+
+  // Safe route (green)
+  map.addLayer({
+    id: 'route-safe', type: 'line', source: 'route-src',
+    filter: ['==',['get','type'],'safe'],
+    layout: { 'line-join':'round','line-cap':'round' },
+    paint: { 'line-color':'#00E676','line-width':4,'line-opacity':0.9,'line-dasharray':[2,0] }
+  });
+
+  // Fast route (orange, dashed)
+  map.addLayer({
+    id: 'route-fast', type: 'line', source: 'route-src',
+    filter: ['==',['get','type'],'fast'],
+    layout: { 'line-join':'round','line-cap':'round' },
+    paint: { 'line-color':'#FF6D00','line-width':3,'line-opacity':0.6,'line-dasharray':[4,3] }
+  });
+
+  map.setLayoutProperty('route-safe', 'visibility', 'none');
+  map.setLayoutProperty('route-fast', 'visibility', 'none');
+}
+
+// ════════════════════════════════════════════════════════
+// UI FUNCTIONS
+// ════════════════════════════════════════════════════════
+function switchTab(tab) {
+  ['route','sos','report','dash'].forEach(t => {
+    document.getElementById('tab-'+t).style.display = t===tab ? 'block' : 'none';
+    document.getElementById('ptab-'+t).classList.toggle('active', t===tab);
+  });
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+}
+
+function toggleLayer(layer) {
+  const btn = document.getElementById('toggle-'+layer);
+  layerState[layer] = !layerState[layer];
+  btn.classList.toggle('on', layerState[layer]);
+
+  if (layer === 'zones') {
+    const vis = layerState.zones ? 'visible' : 'none';
+    ['zones-glow','zones-circle','zones-label'].forEach(l => map.setLayoutProperty(l,'visibility',vis));
+  }
+  if (layer === 'heat') {
+    map.setLayoutProperty('heatmap-layer','visibility', layerState.heat ? 'visible' : 'none');
+  }
+  if (layer === 'route') {
+    if (!activeRoute) { showToast('⚠️ Plan a route first'); return; }
+    const vis = layerState.route ? 'visible' : 'none';
+    map.setLayoutProperty('route-safe','visibility', vis);
+    map.setLayoutProperty('route-fast','visibility', vis);
+  }
+}
+
+// ── ROUTE PLANNER ──
+function planRoute() {
+  const from = document.getElementById('route-from').value;
+  const to = document.getElementById('route-to').value;
+  if (!from || !to) { showToast('⚠️ Select both origin and destination'); return; }
+  if (from === to) { showToast('⚠️ Origin and destination cannot be same'); return; }
+
+  showToast('⏳ Calculating safe route...');
+
+  setTimeout(() => {
+    const key = `${from}→${to}`;
+    const rd = ROUTE_DATA[key] || ROUTE_DATA['default'];
+
+    document.getElementById('safe-time').textContent = rd.safeTime;
+    document.getElementById('safe-dist').textContent = rd.safeDist;
+    document.getElementById('safe-risk').textContent = rd.safeRisk;
+    document.getElementById('fast-time').textContent = rd.fastTime;
+    document.getElementById('fast-dist').textContent = rd.fastDist;
+    document.getElementById('fast-risk').textContent = rd.fastRisk;
+
+    const safeWidth = rd.safeRisk==='LOW'?15:30;
+    const fastWidth = rd.fastRisk==='HIGH'?75:(rd.fastRisk==='MED'?50:30);
+    document.getElementById('safe-rbar').style.width = safeWidth+'%';
+    document.getElementById('fast-rbar').style.width = fastWidth+'%';
+
+    document.getElementById('route-result').style.display = 'block';
+
+    // Draw routes on map
+    const fromZone = ZONES.find(z=>z.id===from)||ZONES[0];
+    const toZone = ZONES.find(z=>z.id===to)||ZONES[5];
+    const safeCoords = SAFE_ROUTES[key] || [[fromZone.lng,fromZone.lat],[fromZone.lng-0.005,fromZone.lat+0.008],[toZone.lng+0.003,toZone.lat-0.004],[toZone.lng,toZone.lat]];
+    const fastCoords = [[fromZone.lng,fromZone.lat],[toZone.lng,toZone.lat]];
+
+    map.getSource('route-src').setData({
+      type: 'FeatureCollection',
+      features: [
+        { type:'Feature', properties:{type:'safe'}, geometry:{type:'LineString',coordinates:safeCoords} },
+        { type:'Feature', properties:{type:'fast'}, geometry:{type:'LineString',coordinates:fastCoords} }
+      ]
+    });
+    map.setLayoutProperty('route-safe','visibility','visible');
+    map.setLayoutProperty('route-fast','visibility','visible');
+    layerState.route = true;
+    document.getElementById('toggle-route').classList.add('on');
+    activeRoute = { from, to };
+
+    // Fit map to route
+    const allCoords = [...safeCoords];
+    const lngs = allCoords.map(c=>c[0]), lats = allCoords.map(c=>c[1]);
+    map.fitBounds([[Math.min(...lngs)-0.01,Math.min(...lats)-0.01],[Math.max(...lngs)+0.01,Math.max(...lats)+0.01]], { padding:80, duration:1000 });
+
+    showToast('✅ Safe route calculated — avoiding red zones');
+  }, 1200);
+}
+
+function selectRoute(type) {
+  document.getElementById('ro-safe').classList.toggle('selected', type==='safe');
+  document.getElementById('ro-fast').classList.toggle('selected', type==='fast');
+  map.setLayoutProperty('route-safe','visibility', type==='safe'?'visible':'none');
+  map.setLayoutProperty('route-fast','visibility', type==='fast'?'visible':'none');
+}
+
+function clearRoute() {
+  map.getSource('route-src').setData({ type:'FeatureCollection', features:[] });
+  map.setLayoutProperty('route-safe','visibility','none');
+  map.setLayoutProperty('route-fast','visibility','none');
+  layerState.route = false;
+  document.getElementById('toggle-route').classList.remove('on');
+  document.getElementById('route-result').style.display = 'none';
+  document.getElementById('route-from').value = '';
+  document.getElementById('route-to').value = '';
+  activeRoute = null;
+  map.flyTo({ center:[79.0882,21.1458], zoom:13, duration:1000 });
+  showToast('Route cleared');
+}
+
+function startNavigation() {
+  showToast('▶ Navigation started — Journey Monitor active');
+}
+
+// ── SOS ──
+function triggerSOS() {
+  if (sosTimer) return;
+  document.getElementById('sos-text').style.display = 'none';
+  document.getElementById('sos-countdown').style.display = 'block';
+  sosSeconds = 5;
+  document.getElementById('sos-countdown').textContent = sosSeconds;
+
+  sosTimer = setInterval(() => {
+    sosSeconds--;
+    if (sosSeconds <= 0) {
+      clearInterval(sosTimer); sosTimer = null;
+      fireSOS();
+    } else {
+      document.getElementById('sos-countdown').textContent = sosSeconds;
+    }
+  }, 1000);
+
+  // Show cancel option
+  document.getElementById('sos-text').style.display = 'none';
+}
+
+function fireSOS() {
+  document.getElementById('sos-normal').style.display = 'none';
+  document.getElementById('sos-sent').style.display = 'block';
+  showToast('🆘 SOS SENT — Contacts notified in 2.3 seconds');
+}
+
+function resetSOS() {
+  if (sosTimer) { clearInterval(sosTimer); sosTimer = null; }
+  document.getElementById('sos-normal').style.display = 'block';
+  document.getElementById('sos-sent').style.display = 'none';
+  document.getElementById('sos-text').style.display = 'block';
+  document.getElementById('sos-countdown').style.display = 'none';
+  document.getElementById('sos-countdown').textContent = '5';
+}
+
+// Double-click on SOS to cancel
+document.getElementById('sos-btn').addEventListener('dblclick', () => {
+  if (sosTimer) {
+    clearInterval(sosTimer); sosTimer = null;
+    document.getElementById('sos-text').style.display = 'block';
+    document.getElementById('sos-countdown').style.display = 'none';
+    showToast('SOS cancelled');
+  }
+});
+
+// ── REPORT ──
+let reportCount = 0;
+function submitReport() {
+  const type = document.getElementById('crime-type').value;
+  const loc = document.getElementById('report-location').value;
+  const sev = document.getElementById('severity').value;
+  if (!type) { showToast('⚠️ Select an incident type'); return; }
+  if (!loc)  { showToast('⚠️ Select a location'); return; }
+
+  reportCount++;
+  const typeLabels = { theft:'Theft/Pickpocketing', snatching:'Chain Snatching', assault:'Physical Assault', robbery:'Robbery', 'vehicle-theft':'Vehicle Theft', harassment:'Harassment', suspicious:'Suspicious Activity', other:'Other' };
+  const sevColors = { low:'#FFB300', medium:'#FF6D00', high:'#FF1744' };
+
+  const rep = { type: typeLabels[type]||type, loc, sev, time: 'Just now', color: sevColors[sev] };
+  myReports.unshift(rep);
+
+  const container = document.getElementById('my-reports');
+  container.innerHTML = myReports.map(r => `
+    <div class="incident-item slide-in">
+      <div class="inc-dot" style="background:${r.color}"></div>
+      <div class="inc-info">
+        <div class="inc-type">${r.type}</div>
+        <div class="inc-loc">📍 ${r.loc}</div>
+      </div>
+      <div class="inc-time">${r.time}</div>
+    </div>
+  `).join('');
+
+  // Update zone score slightly
+  const zone = ZONES.find(z=>z.id===loc||z.name.toLowerCase().includes(loc.split('-')[0]));
+  if (zone && sev === 'high') {
+    zone.crs = Math.min(1, zone.crs + 0.05);
+    if (zone.crs >= 0.75 && zone.tier !== 'high') { zone.tier = 'high'; updateZoneCounts(); }
+    refreshZoneLayer();
+  }
+
+  showToast('✅ Report submitted — AI validation in progress');
+  document.getElementById('crime-type').value = '';
+}
+
+// ── REFRESH ──
+let refreshing = false;
+function refreshZones() {
+  if (refreshing) return;
+  refreshing = true;
+  document.getElementById('refresh-btn').innerHTML = '<span class="spin">↻</span> Updating';
+
+  // Slightly randomize some scores
+  ZONES.forEach(z => {
+    const delta = (Math.random()-0.5)*0.04;
+    z.crs = Math.max(0.05, Math.min(0.99, z.crs+delta));
+  });
+
+  setTimeout(() => {
+    refreshZoneLayer();
+    document.getElementById('refresh-btn').innerHTML = '↻ Refresh';
+    document.getElementById('ai-conf-val').textContent = (85 + Math.random()*5).toFixed(1) + '%';
+    document.getElementById('ai-upd').textContent = 'just now';
+    showToast('✅ Zones updated — AI model confidence ' + document.getElementById('ai-conf-val').textContent);
+    refreshing = false;
+  }, 1500);
+}
+
+function refreshZoneLayer() {
+  if (!map.getSource('zones')) return;
+  const features = ZONES.map(z => ({
+    type: 'Feature',
+    properties: { ...z, color: TIER_COLOR[z.tier], opacity: TIER_OPACITY[z.tier] },
+    geometry: { type: 'Point', coordinates: [z.lng, z.lat] }
+  }));
+  map.getSource('zones').setData({ type:'FeatureCollection', features });
+  map.getSource('heat-src').setData({ type:'FeatureCollection', features: ZONES.map(z=>({ type:'Feature', properties:{weight:z.crs}, geometry:{type:'Point',coordinates:[z.lng,z.lat]} })) });
+  updateZoneCounts();
+}
+
+function updateZoneCounts() {
+  const counts = { high:0, moderate:0, advisory:0, safe:0 };
+  ZONES.forEach(z => counts[z.tier]++);
+  document.getElementById('count-high').textContent = counts.high;
+  document.getElementById('count-mod').textContent = counts.moderate;
+  document.getElementById('count-adv').textContent = counts.advisory;
+  document.getElementById('count-safe').textContent = counts.safe;
+}
+
+// ── INCIDENTS ──
+function renderIncidents() {
+  document.getElementById('incident-list').innerHTML = INCIDENTS.map(i => `
+    <div class="incident-item">
+      <div class="inc-dot" style="background:${TIER_COLOR[i.tier]}"></div>
+      <div class="inc-info">
+        <div class="inc-type">${i.type}</div>
+        <div class="inc-loc">📍 ${i.area}</div>
+      </div>
+      <div class="inc-time">${i.time}</div>
+    </div>
+  `).join('');
+}
+
+// ── DASHBOARD ──
+function initDashboard() {
+  // Patrol list
+  const highZones = [...ZONES].sort((a,b)=>b.crs-a.crs).slice(0,6);
+  document.getElementById('patrol-list').innerHTML = highZones.map((z,i) => {
+    const c = TIER_COLOR[z.tier];
+    return `
+      <div class="patrol-item">
+        <div class="patrol-rank">#${i+1}</div>
+        <div><div class="patrol-name">${z.name}</div><div style="font-family:var(--mono);font-size:9px;color:var(--text-dim)">${z.crimes} incidents · ${z.tier.toUpperCase()}</div></div>
+        <div class="patrol-score" style="color:${c}">${Math.round(z.crs*100)}%</div>
+      </div>
+    `;
+  }).join('');
+
+  // Risk distribution bars
+  const counts = { high:0, moderate:0, advisory:0, safe:0 };
+  ZONES.forEach(z => counts[z.tier]++);
+  const total = ZONES.length;
+  document.getElementById('risk-dist').innerHTML = [
+    { label:'HIGH RISK', key:'high', color:'var(--red)' },
+    { label:'MODERATE', key:'moderate', color:'var(--orange)' },
+    { label:'ADVISORY', key:'advisory', color:'var(--yellow)' },
+    { label:'SAFE', key:'safe', color:'var(--green)' },
+  ].map(row => `
+    <div class="zone-bar-item">
+      <div class="zb-head"><span style="color:${row.color}">${row.label}</span><span style="font-family:var(--mono)">${counts[row.key]} zones</span></div>
+      <div style="background:#0a1525;border-radius:4px;height:8px;overflow:hidden">
+        <div class="zb-fill" style="width:${(counts[row.key]/total*100).toFixed(0)}%;background:${row.color}"></div>
+      </div>
+    </div>
+  `).join('');
+
+  // Time-of-day bars
+  document.querySelectorAll('.time-bar').forEach(bar => {
+    const h = parseInt(bar.getAttribute('data-h'));
+    const pct = h/100;
+    const color = pct>0.7?'#FF1744':pct>0.4?'#FF6D00':'#FFB300';
+    bar.style.height = h+'%';
+    bar.style.background = `linear-gradient(to top,${color}88,${color}44)`;
+    bar.style.borderRadius = '3px 3px 0 0';
+  });
+}
+
+// ── CLOCK ──
+function updateClock() {
+  const now = new Date();
+  const h = String(now.getHours()).padStart(2,'0');
+  const m = String(now.getMinutes()).padStart(2,'0');
+  const s = String(now.getSeconds()).padStart(2,'0');
+  document.getElementById('live-clock').textContent = `${h}:${m}:${s}`;
+  const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  document.getElementById('live-date').textContent = `${days[now.getDay()]}, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// AI bar animation
+setInterval(() => {
+  const val = 82 + Math.random() * 10;
+  document.getElementById('ai-bar').style.width = val.toFixed(1) + '%';
+}, 8000);
+
+// ── TOAST ──
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// ── AUTO REFRESH SIMULATION ──
+setInterval(() => {
+  const mins = Math.floor(Math.random()*5)+1;
+  document.getElementById('ai-upd').textContent = mins + ' min ago';
+}, 60000);
+
+// Initial counts
+updateZoneCounts();
+</script>
+</body>
+</html>
